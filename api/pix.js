@@ -1,46 +1,44 @@
 export default async function handler(req, res) {
+  // Configuração de CORS necessária para a Vercel
+  res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
+  res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  // COLOQUE AS DUAS AQUI
-  const SECRET_KEY = "dicesk_live_bc38aad5a43f54cccdcac5c7681703a8ba849d809bf83700";
-  const PUBLIC_KEY = "dice_live_e99fc6fa166def97f446fb67775d224a"; // Seu outro token
+  // 1. USE APENAS O TOKEN SECRETO (DICESK)
+  const SEU_TOKEN = "dicesk_live_bc38aad5a43f54cccdcac5c7681703a8ba849d809bf83700";
 
   if (req.method === "POST") {
     try {
       const { amount, buyerName } = req.body;
       const randomId = Date.now();
 
-      const bodyDice = {
-        product_name: "Pacote de Titulos",
-        amount: parseFloat(amount),
-        payer: {
-          name: buyerName || "Cliente",
-          email: `venda.${randomId}@gmail.com`,
-          document: "12345678909" 
+      // 2. ESTRUTURA EXATA DO SEU CURL
+      const payload = {
+        "product_name": "Pacote de Titulos",
+        "amount": parseFloat(amount),
+        "payer": {
+          "name": buyerName || "Cliente",
+          "email": `cliente.${randomId}@email.com`,
+          "document": "36544466042" // CPF que apareceu no seu log de sucesso
         }
       };
 
-      // Tentando enviar a Secreta no Authorization e a Pública no Body 
-      // (Algumas APIs da Dice pedem a pública para identificar a loja)
+      console.log("Iniciando tentativa com estrutura Curl...");
+
       const response = await fetch("https://api.use-dice.com/api/v2/payments/deposit", {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${SECRET_KEY}`,
-          "x-public-key": PUBLIC_KEY // Tentativa de cabeçalho extra
+          "Authorization": `Bearer ${SEU_TOKEN}`,
+          "Content-Type": "application/json"
         },
-        body: JSON.stringify({
-            ...bodyDice,
-            api_key: PUBLIC_KEY // Tentativa de enviar no corpo também
-        })
+        body: JSON.stringify(payload)
       });
 
       const data = await response.json();
-      console.log("Resposta detalhada da Dice:", JSON.stringify(data));
+      console.log("Resposta da Dice:", JSON.stringify(data));
 
       if (data.qr_code_text) {
         return res.status(200).json({
@@ -49,11 +47,12 @@ export default async function handler(req, res) {
         });
       }
 
-      // Se falhar, o log na Vercel vai mostrar o erro exato agora
-      return res.status(401).json({ error: "Erro de Credenciais", detail: data });
+      // Retorna o erro detalhado da Dice para o log da Vercel
+      return res.status(401).json({ error: "Erro Dice", detail: data.detail || data });
 
     } catch (error) {
-      return res.status(500).json({ error: "Erro interno", msg: error.message });
+      console.error("Erro no processamento:", error);
+      return res.status(500).json({ error: "Erro interno no servidor" });
     }
   }
 }
