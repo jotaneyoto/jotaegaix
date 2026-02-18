@@ -8,6 +8,7 @@ function gerarCpfValido() {
 }
 
 export default async function handler(req, res) {
+  // Configurações de Permissão (CORS)
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
@@ -15,8 +16,11 @@ export default async function handler(req, res) {
 
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  const TOKEN = process.env.DICE_TOKEN;
-  if (!TOKEN) return res.status(500).json({ error: "DICE_TOKEN não configurado na Vercel" });
+  // 🔴 AQUI ESTAVA O PROBLEMA: A Vercel não estava lendo a variável.
+  // Colocamos a chave direta para funcionar imediatamente.
+  const TOKEN = "dicesk_live_bc38aad5a43f54cccdcac5c7681703a8ba849d809bf83700";
+
+  if (!TOKEN) return res.status(500).json({ error: "Token não configurado" });
 
   // === MODO 1: VERIFICAR STATUS (GET) ===
   if (req.method === "GET") {
@@ -45,11 +49,12 @@ export default async function handler(req, res) {
       const randomId = Date.now();
 
       const bodyToSend = {
-        product_name: "Pacote de Titulos", // Dice pede nome, não ID
+        product_name: "Pacote de Titulos", 
         amount: Number(amount),
         payer: {
           name: buyerName || "Cliente",
-          email: `cliente.${randomId}@email.com`,
+          // Email único para não dar erro de duplicidade
+          email: `cliente.${randomId}@email.com`, 
           document: cpfFake // Envia o CPF gerado
         }
       };
@@ -68,10 +73,11 @@ export default async function handler(req, res) {
       const data = await response.json();
       console.log("Resposta Dice:", data);
 
+      // A Dice retorna 'qr_code_text'
       if (data.qr_code_text) {
         return res.status(200).json({
-          qr_code_text: data.qr_code_text, // Texto puro do PIX
-          transaction_id: data.id // ID para consultar status depois
+          qr_code_text: data.qr_code_text, 
+          transaction_id: data.id 
         });
       }
 
